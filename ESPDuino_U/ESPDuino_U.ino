@@ -8,27 +8,47 @@
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
 
+// Common setting
 #define DELAY_DURATION 1000
+#define BAUD_MONITOR  9600
+
+// AP setting
 #define SSID        "mark"
 #define PASSWORD    "6266790021"
 
+// ThingSpeak setting
 #define TS_IP       "184.106.153.149" // api.thingspeak.com
 #define WRITE_API_KEY   "6RZFFXN81EIFD1XK"
+#define PORT 80
+#define WAIT_SEC 16
 
-#define BAUD_MONITOR  9600
-#define BAUD_ESP8266  115200
+// ESP 8266 setting
+#define BAUD_ESP8266  115200    // Not used
 
-DS1302 rtc(16, 15, 14);
-LiquidCrystal_I2C lcd(0x27, 16, 2); 
+// LCD setting
+#define COL 16
+#define ROW 2
+
+// Pin setting
+#define RTC_RST 16
+#define RTC_DAT 15
+#define RTC_CLK 14
+// SDA: 4 (default) or 2, SCL: 5 (default) or 14
+#define LCD_SDA 4
+#define LCD_SCL 5
+
+
+DS1302 rtc(RTC_RST, RTC_DAT, RTC_CLK);
+LiquidCrystal_I2C lcd(0x27, COL, ROW); 
 
 const int sensorPin=A0;
 
 // ThingSpeak Settings
 //String writeAPIKey = "6RZFFXN81EIFD1XK";
 
-char line1Str[16]; //RTC Time
-char line2Str[16]; //temperature
-char tempStr[16];    //temperature
+char line1Str[COL]; //RTC Time
+char line2Str[COL]; //temperature
+char tempStr[COL];    //temperature
 
 WiFiClient client;
 
@@ -49,7 +69,7 @@ void rtcModule_setup(bool needTimeSetup) {
 }
 
 void lcdModule_setup() {
-  Wire.begin(4, 5); // SDA: 4 (default) or 2, SCL: 5 (default) or 14
+  Wire.begin(LCD_SDA, LCD_SCL); 
 
   lcd.init(); // initializing the LCD
   lcd.display(); //Enable or turn on the text
@@ -114,7 +134,7 @@ void tempModule_loop() {
   // to degree (voltage times 100)
   float temperature = voltage *100;
   
-  char temp[16];
+  char temp[COL];
   dtostrf(temperature, 5, 2, temp);
   sprintf(line2Str, "T: %sC", temp);
 
@@ -132,20 +152,22 @@ void lcdModule_loop() {
 void wifi_loop() {
 
   Serial.println("\nStarting connection...");
-  if (client.connect(TS_IP, 80)) {
+  if (client.connect(TS_IP, PORT)) {
     Serial.println("connected");
-  }
-  
-  // prepare GET string
-  String getStr = "GET /update?api_key=";
-  getStr += WRITE_API_KEY;
-  getStr +="&field1=";
-  getStr += String(tempStr);
-  getStr += "\r\n\r\n";
-  Serial.println(getStr);
 
-  client.println(getStr);
-  client.println();
+    // prepare GET string
+    String getStr = "GET /update?api_key=";
+    getStr += WRITE_API_KEY;
+    getStr +="&field1=";
+    getStr += String(tempStr);
+    getStr += "\r\n\r\n";
+    Serial.println(getStr);
+
+    client.println(getStr);
+    client.println();
+  } else {
+    Serial.println("fail to connect");
+  }
 }
 
 //The setup function is called once at startup of the sketch
@@ -153,7 +175,7 @@ void setup() {
   lcdModule_setup();
   tempModule_setup();
   rtcModule_setup(false);
-  wifi_setup();
+//  wifi_setup();
 }
 
 int count=0;
@@ -162,8 +184,8 @@ void loop() {
   rtcModule_loop();
   tempModule_loop();
   lcdModule_loop();
-  if (count == 16) {
-     wifi_loop();
+  if (count == WAIT_SEC) {
+//     wifi_loop();
      count = 0;
   }
 
